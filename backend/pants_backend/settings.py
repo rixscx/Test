@@ -18,7 +18,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
-    'analyzer', # Ensure this matches your app's folder name
+    'analyzer', # This must match your app's folder name exactly
 ]
 
 MIDDLEWARE = [
@@ -59,7 +59,7 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173", # Vite default port
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 USDA_API_KEY = os.getenv("USDA_API_KEY")

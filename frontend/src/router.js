@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-// --- CORRECTED PATHS ---
+// --- CORRECTED PATHS AND NAMES ---
 import HomePage from './Views/HomeView.vue';
 import AnalysisPage from './Views/AnalyzerView.vue';
 import RecipesPage from './Views/RecipesView.vue';

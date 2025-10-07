@@ -1,15 +1,26 @@
 # === Django Backend ===
-Django
-djangorestframework
-django-cors-headers
-Pillow
-python-dotenv
-requests
+Django==3.2.25
+djangorestframework==3.14.0
+django-cors-headers==3.13.0
+python-dotenv==0.21.1
+requests==2.28.2
 
-# === ML / AI Dependencies ===
-transformers
-torch
-scikit-learn
-pandas
-joblib
-numpy
+# === ML / AI Dependencies (Python 3.7 Compatible) ===
+torch==1.13.1
+torchvision==0.14.1
+transformers==4.29.2
+scikit-learn==1.0.2
+pandas==1.3.5
+numpy==1.21.6
+scipy==1.7.3
+pillow==9.0.1
+joblib==1.2.0
+tqdm==4.65.0
+nltk==3.7
+gensim==4.2.0
+simplejson==3.18.1
+sentencepiece==0.1.99
+
+# === Optional advanced fine-tuning support ===
+peft==0.3.0
+accelerate==0.19.0
