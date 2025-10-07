@@ -1,0 +1,15 @@
+# === Django Backend ===
+Django
+djangorestframework
+django-cors-headers
+Pillow
+python-dotenv
+requests
+
+# === ML / AI Dependencies ===
+transformers
+torch
+scikit-learn
+pandas
+joblib
+numpy
