@@ -76,3 +76,4 @@ coverage.xml
 *.py,cover
 nosetests.xml
 junit.xml
+"im2recipe-Pytorch/" 
