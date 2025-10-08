@@ -5,9 +5,15 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-default-dev-key")
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+# It is recommended to set the DJANGO_ENV environment variable to "production" in your production environment
+if os.getenv('DJANGO_ENV') == 'production':
+    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+    DEBUG = False
+    ALLOWED_HOSTS = ['your_production_domain.com'] # Replace with your actual domain
+else:
+    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-default-dev-key")
+    DEBUG = True
+    ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -18,7 +24,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
-    'analyzer', # This must match your app's folder name exactly
+    'analyzer',
 ]
 
 MIDDLEWARE = [
@@ -38,7 +44,8 @@ WSGI_APPLICATION = 'pants_backend.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [], 'APP_DIRS': True,
+        'DIRS': [],
+        'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -50,11 +57,18 @@ TEMPLATES = [
     },
 ]
 
-DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
+
 STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -62,4 +76,5 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
 USDA_API_KEY = os.getenv("USDA_API_KEY")
