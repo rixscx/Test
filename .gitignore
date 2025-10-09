@@ -78,3 +78,7 @@ nosetests.xml
 junit.xml
 "im2recipe-Pytorch/" 
 im2recipe-Pytorch/venv37/ 
+
+# Python virtual environment
+backend/backend-venv/
+

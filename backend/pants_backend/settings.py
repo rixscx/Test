@@ -75,6 +75,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
 ]
 
 USDA_API_KEY = os.getenv("USDA_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
