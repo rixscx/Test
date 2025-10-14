@@ -5,11 +5,10 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-# It is recommended to set the DJANGO_ENV environment variable to "production" in your production environment
 if os.getenv('DJANGO_ENV') == 'production':
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     DEBUG = False
-    ALLOWED_HOSTS = ['your_production_domain.com'] # Replace with your actual domain
+    ALLOWED_HOSTS = ['your_production_domain.com']
 else:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-default-dev-key")
     DEBUG = True
@@ -22,11 +21,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'analyzer',
+    'guestbook',
     'rest_framework',
     'corsheaders',
-    'analyzer',
+
+    # Allauth apps
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.github',
 ]
 
+# --- CORRECTED MIDDLEWARE ---
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -36,6 +44,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Add this line for allauth
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'pants_backend.urls'
@@ -80,3 +90,22 @@ CORS_ALLOWED_ORIGINS = [
 
 USDA_API_KEY = os.getenv("USDA_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Allauth settings
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+SITE_ID = 1
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+SOCIALACCOUNT_PROVIDERS = {
+    'github': {
+        'SCOPE': [
+            'read:user',
+        ],
+    }
+}
+
+LOGIN_REDIRECT_URL = 'http://localhost:5173/guestbook'

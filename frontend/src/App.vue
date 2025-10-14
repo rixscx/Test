@@ -123,7 +123,9 @@ watch(messages, () => {
       <router-link to="/">Home</router-link>
       <router-link to="/analyzer">Analyzer</router-link>
       <router-link to="/recipes">Recipes</router-link>
-      <router-link to="/about">About</router-link> </nav>
+      <router-link to="/guestbook">Guestbook</router-link>
+      <router-link to="/about">About</router-link>
+    </nav>
     
     <main class="content-area">
       <router-view v-slot="{ Component }">
