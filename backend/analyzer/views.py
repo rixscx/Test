@@ -8,7 +8,6 @@ import requests
 import logging
 from google import genai
 import json
-
 logger = logging.getLogger(__name__)
 
 # --- This part of your code for image analysis remains the same ---
