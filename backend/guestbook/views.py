@@ -1,32 +1,29 @@
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework import generics, permissions
 from .models import GuestbookEntry
-from .serializers import GuestbookEntrySerializer
-from allauth.socialaccount.models import SocialAccount
+from .serializers import GuestbookEntrySerializer, UserSerializer
+from django.contrib.auth.models import User
+from rest_framework.response import Response
 
-class GuestbookEntryListCreate(generics.ListCreateAPIView):
+# This view allows anyone to see the guestbook entries.
+class GuestbookEntryList(generics.ListAPIView):
+    queryset = GuestbookEntry.objects.all().order_by('-created_at')
+    serializer_class = GuestbookEntrySerializer
+    permission_classes = [permissions.AllowAny]
+
+# This view allows ONLY logged-in users to create a new entry.
+class GuestbookEntryCreate(generics.CreateAPIView):
     queryset = GuestbookEntry.objects.all()
     serializer_class = GuestbookEntrySerializer
+    permission_classes = [permissions.IsAuthenticated] # Requires user to be logged in
 
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [permissions.IsAuthenticated()]
-        return [permissions.AllowAny()]
-
+    # This method automatically assigns the logged-in user to the new entry.
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-class CurrentUserView(APIView):
+# This new view will tell your frontend who is currently logged in.
+class CurrentUserView(generics.RetrieveAPIView):
+    serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
-        try:
-            social_account = SocialAccount.objects.get(user=request.user, provider='github')
-            data = {
-                'username': social_account.extra_data.get('login'),
-                'avatar_url': social_account.extra_data.get('avatar_url')
-            }
-            return Response(data)
-        except SocialAccount.DoesNotExist:
-            return Response({'error': 'Not logged in with GitHub'}, status=status.HTTP_404_NOT_FOUND)
+    def get_object(self):
+        return self.request.user

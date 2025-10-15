@@ -1,6 +1,9 @@
 from django.urls import path
-from .views import GuestbookEntryListCreate
+from .views import GuestbookEntryList, GuestbookEntryCreate
 
 urlpatterns = [
-    path('', GuestbookEntryListCreate.as_view(), name='guestbook-list-create'),
+    # GET requests to /api/guestbook/ will go to the list view.
+    path('', GuestbookEntryList.as_view(), name='guestbook-list'),
+    # POST requests to /api/guestbook/ will go to the create view.
+    path('', GuestbookEntryCreate.as_view(), name='guestbook-create'),
 ]

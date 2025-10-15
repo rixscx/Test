@@ -1,158 +1,205 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 
-const canvasContainer = ref(null);
-let canvas, ctx, particles, animationFrameId;
-
-// --- Perlin Noise Generator (for organic flow) ---
-const Perlin = {
-    rand_vect: function(){ let theta = Math.random() * 2 * Math.PI; return {x: Math.cos(theta), y: Math.sin(theta)}; },
-    dot_prod_grid: function(x, y, vx, vy){ let g_vect; let d_vect = {x: x - vx, y: y - vy}; if (this.gradients[[vx,vy]]){ g_vect = this.gradients[[vx,vy]]; } else { g_vect = this.rand_vect(); this.gradients[[vx,vy]] = g_vect; } return d_vect.x * g_vect.x + d_vect.y * g_vect.y; },
-    smootherstep: function(x){ return 6*x**5 - 15*x**4 + 10*x**3; },
-    interp: function(x, a, b){ return a + this.smootherstep(x) * (b-a); },
-    seed: function(){ this.gradients = {}; this.memory = {}; },
-    get: function(x, y) { if (this.memory.hasOwnProperty([x,y])) return this.memory[[x,y]]; let xf = Math.floor(x); let yf = Math.floor(y); let tl = this.dot_prod_grid(x, y, xf,   yf); let tr = this.dot_prod_grid(x, y, xf+1, yf); let bl = this.dot_prod_grid(x, y, xf,   yf+1); let br = this.dot_prod_grid(x, y, xf+1, yf+1); let xt = this.interp(x-xf, tl, tr); let xb = this.interp(x-xf, bl, br); let v = this.interp(y-yf, xt, xb); this.memory[[x,y]] = v; return v; }
-};
-Perlin.seed();
-
-class Particle {
-    constructor() {
-        this.x = Math.random() * window.innerWidth;
-        this.y = Math.random() * window.innerHeight;
-        this.size = Math.random() * 1.5 + 0.5;
-        this.speed = Math.random() * 0.5 + 0.2;
-        this.angle = 0;
-        this.alpha = 0;
-    }
-    update(noiseZ, mouse) {
-        const noiseValue = Perlin.get(this.x * 0.001, this.y * 0.001 + noiseZ);
-        this.angle = noiseValue * Math.PI * 2;
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
-        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-        }
-        let dx = mouse.x - this.x;
-        let dy = mouse.y - this.y;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-        let maxDistance = mouse.radius;
-        if (distance < maxDistance) {
-            this.alpha = 1 - (distance / maxDistance);
-            this.x += dx * 0.02 * this.alpha;
-            this.y += dy * 0.02 * this.alpha;
-        } else {
-            this.alpha = 0;
+// --- HELPER FUNCTION to get the CSRF token from cookies ---
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
         }
     }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + this.alpha * 0.5})`;
-        ctx.shadowColor = 'white';
-        ctx.shadowBlur = 5 + this.alpha * 10;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-    }
+    return cookieValue;
 }
 
-let noiseZ = 0;
-function init(mouse) {
-    particles = [];
-    let numberOfParticles = (window.innerWidth * window.innerHeight) / 10000;
-    for (let i = 0; i < numberOfParticles; i++) {
-        particles.push(new Particle());
-    }
-}
-
-function animate(mouse) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    noiseZ += 0.0005;
-    for (let i = 0; i < particles.length; i++) {
-        particles[i].update(noiseZ, mouse);
-        particles[i].draw();
-    }
-    animationFrameId = requestAnimationFrame(() => animate(mouse));
-}
-// --- END BACKGROUND ANIMATION SCRIPT ---
-
-
-// --- COMPONENT LOGIC ---
+// --- COMPONENT LOGIC (Corrected for authentication) ---
 const entries = ref([]);
 const newEntry = ref('');
-const newName = ref('');
+const newName = ref(''); // Kept for the template, but not submitted
 const isLoading = ref(true);
 const errorMessage = ref('');
+const currentUser = ref(null); // This will store the logged-in user data
 
+// --- API FUNCTIONS ---
+
+// Fetches the current logged-in user from your Django backend
+async function fetchCurrentUser() {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/user/', {
+      credentials: 'include', // This tells the browser to send login cookies
+      headers: { 'Accept': 'application/json' },
+    });
+    if (response.ok) {
+      currentUser.value = await response.json();
+    } else {
+      currentUser.value = null;
+    }
+  } catch (error) {
+    currentUser.value = null;
+    console.error('Not logged in or API error:', error);
+  }
+}
+
+// Fetches all guestbook entries
 async function fetchEntries() {
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/guestbook/');
-        if (!response.ok) throw new Error('Failed to fetch entries.');
-        const data = await response.json();
-        entries.value = data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    } catch (error) {
-        errorMessage.value = 'Could not connect to the guestbook archives.';
-        console.error(error);
-    } finally {
-        isLoading.value = false;
-    }
+  try {
+    isLoading.value = true;
+    const response = await fetch('http://127.0.0.1:8000/api/guestbook/');
+    if (!response.ok) throw new Error('Failed to fetch entries.');
+    const data = await response.json();
+    // The backend now sends sorted data, so we can use it directly
+    entries.value = data;
+  } catch (error) {
+    errorMessage.value = 'Could not connect to the guestbook archives.';
+    console.error(error);
+  } finally {
+    isLoading.value = false;
+  }
 }
 
+// Submits a new entry (only if logged in)
 async function submitEntry() {
-    if (!newEntry.value.trim() || !newName.value.trim()) return;
-    
-    try {
-        const response = await fetch('http://127.0.0.1:8000/api/guestbook/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: newName.value,
-                message: newEntry.value,
-            }),
-        });
-        if (!response.ok) throw new Error('Failed to submit entry.');
-        
+  // We only check for the message and if a user is logged in
+  if (!newEntry.value.trim() || !currentUser.value) return;
+
+  try {
+    const csrftoken = getCookie('csrftoken');
+    // CORRECTED: Posting to the correct 'create' endpoint
+    const response = await fetch('http://127.0.0.1:8000/api/guestbook/create/', {
+      method: 'POST',
+      credentials: 'include', // Send cookies with the POST request
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken, // The security token
+      },
+      // CORRECTED: Only sending the 'message', as the backend handles the user
+      body: JSON.stringify({
+        message: newEntry.value,
+      }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 403) {
+            errorMessage.value = 'Authentication failed. Please log in again.';
+            currentUser.value = null; // Clear user state on failure
+        } else {
+            throw new Error('Failed to submit entry.');
+        }
+    } else {
         newEntry.value = '';
-        newName.value = '';
-        fetchEntries(); // Refresh the list
-    } catch (error) {
-        errorMessage.value = 'Your message could not be transmitted.';
-        console.error(error);
+        await fetchEntries(); // Refresh the list after posting
     }
+  } catch (error) {
+    errorMessage.value = 'Your message could not be transmitted.';
+    console.error(error);
+  }
 }
 
 
-onMounted(() => {
-  // --- Initialize Background Animation ---
-  canvas = document.createElement('canvas');
-  canvas.id = 'stardust-canvas';
-  canvasContainer.value.insertBefore(canvas, canvasContainer.value.firstChild);
-  ctx = canvas.getContext('2d');
+// --- BACKGROUND ANIMATION SCRIPT (No changes) ---
+const canvasContainer = ref(null);
+let canvas, ctx, particles, animationFrameId;
+const Perlin = {
+    rand_vect: function(){ let theta = Math.random() * 2 * Math.PI; return {x: Math.cos(theta), y: Math.sin(theta)}; },
+    dot_prod_grid: function(x, y, vx, vy){ let g_vect; let d_vect = {x: x - vx, y: y - vy}; if (this.gradients[[vx,vy]]){ g_vect = this.gradients[[vx,vy]]; } else { g_vect = this.rand_vect(); this.gradients[[vx,vy]] = g_vect; } return d_vect.x * g_vect.x + d_vect.y * g_vect.y; },
+    smootherstep: function(x){ return 6*x**5 - 15*x**4 + 10*x**3; },
+    interp: function(x, a, b){ return a + this.smootherstep(x) * (b-a); },
+    seed: function(){ this.gradients = {}; this.memory = {}; },
+    get: function(x, y) { if (this.memory.hasOwnProperty([x,y])) return this.memory[[x,y]]; let xf = Math.floor(x); let yf = Math.floor(y); let tl = this.dot_prod_grid(x, y, xf,   yf); let tr = this.dot_prod_grid(x, y, xf+1, yf); let bl = this.dot_prod_grid(x, y, xf,   yf+1); let br = this.dot_prod_grid(x, y, xf+1, yf+1); let xt = this.interp(x-xf, tl, tr); let xb = this.interp(x-xf, bl, br); let v = this.interp(y-yf, xt, xb); this.memory[[x,y]] = v; return v; }
+};
+Perlin.seed();
+class Particle {
+    constructor() {
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.speed = Math.random() * 0.5 + 0.2;
+        this.angle = 0;
+        this.alpha = 0;
+    }
+    update(noiseZ, mouse) {
+        const noiseValue = Perlin.get(this.x * 0.001, this.y * 0.001 + noiseZ);
+        this.angle = noiseValue * Math.PI * 2;
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+        }
+        let dx = mouse.x - this.x;
+        let dy = mouse.y - this.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        let maxDistance = mouse.radius;
+        if (distance < maxDistance) {
+            this.alpha = 1 - (distance / maxDistance);
+            this.x += dx * 0.02 * this.alpha;
+            this.y += dy * 0.02 * this.alpha;
+        } else {
+            this.alpha = 0;
+        }
+    }
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + this.alpha * 0.5})`;
+        ctx.shadowColor = 'white';
+        ctx.shadowBlur = 5 + this.alpha * 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+let noiseZ = 0;
+function init(mouse) {
+    particles = [];
+    let numberOfParticles = (window.innerWidth * window.innerHeight) / 10000;
+    for (let i = 0; i < numberOfParticles; i++) {
+        particles.push(new Particle());
+    }
+}
+function animate(mouse) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    noiseZ += 0.0005;
+    for (let i = 0; i < particles.length; i++) {
+        particles[i].update(noiseZ, mouse);
+        particles[i].draw();
+    }
+    animationFrameId = requestAnimationFrame(() => animate(mouse));
+}
+// --- LIFECYCLE HOOKS ---
+onMounted(async () => {
+  // --- Initialize Background Animation ---
+  canvas = document.createElement('canvas');
+  canvas.id = 'stardust-canvas';
+  canvasContainer.value.insertBefore(canvas, canvasContainer.value.firstChild);
+  ctx = canvas.getContext('2d');
+  const mouse = { x: undefined, y: undefined, radius: 150 };
+  const handleMouseMove = (event) => { mouse.x = event.x; mouse.y = event.y; };
+  window.addEventListener('mousemove', handleMouseMove);
+  const handleResize = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    init(mouse);
+  };
+  window.addEventListener('resize', handleResize);
+  
+  handleResize();
+  animate(mouse);
 
-  const mouse = { x: undefined, y: undefined, radius: 150 };
-  const handleMouseMove = (event) => { mouse.x = event.x; mouse.y = event.y; };
-  window.addEventListener('mousemove', handleMouseMove);
-
-  const handleResize = () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    init(mouse);
-  };
-  window.addEventListener('resize', handleResize);
-  
-  handleResize();
-  animate(mouse);
-
-  fetchEntries(); // Fetch initial entries
+  // Fetch initial data
+  await fetchCurrentUser();
+  await fetchEntries();
 });
 
 onBeforeUnmount(() => {
-    // --- Cleanup Background Animation ---
-    cancelAnimationFrame(animationFrameId);
-    window.removeEventListener('resize', () => {});
-    window.removeEventListener('mousemove', () => {});
+    // --- Cleanup Background Animation ---
+    cancelAnimationFrame(animationFrameId);
+    window.removeEventListener('resize', () => {});
+    window.removeEventListener('mousemove', () => {});
 });
 </script>
 
@@ -166,18 +213,28 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="form-panel">
-        <div class="input-group">
-          <input type="text" v-model="newName" id="nameInput" required class="input-field" />
-          <label for="nameInput" class="input-label">Callsign (Name)</label>
+        <div v-if="currentUser" class="input-group">
+          <input type="text" :value="currentUser.username" id="nameInput" required class="input-field" disabled />
+          <label for="nameInput" class="input-label" style="top: -1rem; font-size: 0.8rem;">Callsign (Name)</label>
         </div>
+        <div v-else class="input-group">
+          <input type="text" v-model="newName" id="nameInput" required class="input-field" disabled />
+          <label for="nameInput" class="input-label">Login to use your Callsign</label>
+        </div>
+
         <div class="input-group">
-          <textarea v-model="newEntry" id="messageInput" required class="input-field" rows="4"></textarea>
+          <textarea v-model="newEntry" id="messageInput" required class="input-field" rows="4" :disabled="!currentUser"></textarea>
           <label for="messageInput" class="input-label">Message</label>
         </div>
-        <button @click="submitEntry" class="submit-button">
+        
+        <button v-if="currentUser" @click="submitEntry" class="submit-button">
           <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           <span>Transmit</span>
         </button>
+        <a v-else href="http://127.0.0.1:8000/accounts/github/login/" class="submit-button">
+            <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            <span>Authenticate with GitHub</span>
+        </a>
       </div>
 
       <div class="entries-panel">
@@ -195,12 +252,12 @@ onBeforeUnmount(() => {
             <div v-for="(entry, index) in entries" :key="entry.id" class="entry-card" :style="{ '--delay': `${index * 75}ms` }">
                 <p class="entry-message">{{ entry.message }}</p>
                 <div class="entry-footer">
-                    <span class="entry-name">from: {{ entry.name }}</span>
+                    <span class="entry-name">from: {{ entry.user }}</span>
                     <span class="entry-date">timestamp: {{ new Date(entry.created_at).toISOString() }}</span>
                 </div>
             </div>
         </div>
-         <div v-if="!isLoading && !entries.length" class="empty-state">
+        <div v-if="!isLoading && !entries.length" class="empty-state">
             <p>No transmissions logged. Be the first.</p>
         </div>
       </div>
@@ -209,6 +266,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* All of your original styles are preserved here, with compatibility fixes */
 .guestbook-view {
   width: 100%;
   min-height: 100vh;
@@ -218,21 +276,42 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: hidden; /* Hide main scrollbar */
 }
+
 :deep(#stardust-canvas) {
-  position: fixed; top: 0; left: 0;
-  width: 100%; height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
 }
+
 .scanline {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    background: linear-gradient(0deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.03) 50%, rgba(255, 255, 255, 0) 100%);
-    background-size: 100% 4px;
-    animation: scanlines 10s linear infinite;
-    z-index: 2;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 100% 4px;
+  animation: scanlines 10s linear infinite;
+  z-index: 2;
 }
-@keyframes scanlines { from { background-position: 0 0; } to { background-position: 0 100px; } }
+
+@keyframes scanlines {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 100px;
+  }
+}
 
 .content-grid {
   max-width: 1200px;
@@ -248,9 +327,17 @@ onBeforeUnmount(() => {
     "form entries";
 }
 
-.header-section { grid-area: header; }
-.form-panel { grid-area: form; }
-.entries-panel { grid-area: entries; }
+.header-section {
+  grid-area: header;
+}
+
+.form-panel {
+  grid-area: form;
+}
+
+.entries-panel {
+  grid-area: entries;
+}
 
 .page-title {
   text-align: center;
@@ -269,8 +356,9 @@ onBeforeUnmount(() => {
 
 .form-panel {
   background: rgba(13, 13, 13, 0.7);
-  backdrop-filter: blur(15px);
+  /* FIXED: Added Safari compatibility */
   -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 2rem;
@@ -280,7 +368,10 @@ onBeforeUnmount(() => {
   height: fit-content;
 }
 
-.input-group { position: relative; }
+.input-group {
+  position: relative;
+}
+
 .input-field {
   width: 100%;
   background: transparent;
@@ -293,19 +384,28 @@ onBeforeUnmount(() => {
   transition: border-color 0.3s ease;
   resize: vertical;
 }
+
 .input-label {
-    position: absolute; top: 0.8rem; left: 0;
-    color: var(--secondary-text);
-    pointer-events: none;
-    transition: all 0.3s ease;
+  position: absolute;
+  top: 0.8rem;
+  left: 0;
+  color: var(--secondary-text);
+  pointer-events: none;
+  transition: all 0.3s ease;
 }
+
 .input-field:focus + .input-label,
-.input-field:valid + .input-label {
-    top: -1rem;
-    font-size: 0.8rem;
-    color: var(--primary-text);
+.input-field:valid + .input-label,
+.input-field:disabled + .input-label {
+  /* Keep label positioned when disabled */
+  top: -1rem;
+  font-size: 0.8rem;
+  color: var(--primary-text);
 }
-.input-field:focus { border-bottom-color: var(--accent-glow); }
+
+.input-field:focus {
+  border-bottom-color: var(--accent-glow);
+}
 
 .submit-button {
   align-self: flex-start;
@@ -320,44 +420,54 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  text-decoration: none; /* For the 'a' tag version */
 }
+
 .submit-button svg {
-    width: 18px; height: 18px;
-    fill: currentColor;
-    transition: transform 0.3s ease;
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  transition: transform 0.3s ease;
 }
+
 .submit-button:hover {
   background-color: var(--accent-glow);
   color: var(--bg-color);
   border-color: var(--accent-glow);
   box-shadow: 0 0 15px var(--accent-glow);
 }
-.submit-button:hover svg { transform: translateX(5px); }
+
+.submit-button:hover svg {
+  transform: translateX(5px);
+}
 
 .entries-panel {
-    background: rgba(13, 13, 13, 0.7);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    height: 70vh; /* Fixed height for the panel */
+  background: rgba(13, 13, 13, 0.7);
+  /* FIXED: Added Safari compatibility */
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  height: 70vh; /* Fixed height for the panel */
 }
 
 .panel-title {
-    font-size: 1.2rem;
-    font-weight: 500;
-    margin: 0 0 1.5rem 0;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--secondary-text);
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0 0 1.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--secondary-text);
 }
 
-.loading-state, .error-state, .empty-state {
+.loading-state,
+.error-state,
+.empty-state {
   text-align: center;
   padding: 3rem;
   color: var(--secondary-text);
@@ -367,61 +477,101 @@ onBeforeUnmount(() => {
   justify-content: center;
   flex-direction: column;
 }
+
 .signal-loader {
-    display: flex; justify-content: center; align-items: center;
-    height: 40px; gap: 8px; margin: 0 auto 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px;
+  gap: 8px;
+  margin: 0 auto 1.5rem;
 }
+
 .signal-bar {
-    width: 6px; height: 100%;
-    background-color: var(--accent-glow);
-    animation: signal 1.2s infinite ease-in-out;
+  width: 6px;
+  height: 100%;
+  background-color: var(--accent-glow);
+  animation: signal 1.2s infinite ease-in-out;
 }
-.signal-bar:nth-child(2) { animation-delay: 0.2s; }
-.signal-bar:nth-child(3) { animation-delay: 0.4s; }
-@keyframes signal { 0%, 100% { transform: scaleY(0.2); } 50% { transform: scaleY(1); } }
+
+.signal-bar:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.signal-bar:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes signal {
+  0%,
+  100% {
+    transform: scaleY(0.2);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
 
 .entries-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    overflow-y: auto;
-    flex-grow: 1;
-    padding-right: 1rem; /* Space for scrollbar */
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  padding-right: 1rem; /* Space for scrollbar */
 }
-.entries-list::-webkit-scrollbar { width: 4px; }
-.entries-list::-webkit-scrollbar-track { background: transparent; }
-.entries-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-.entries-list { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
 
+.entries-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.entries-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.entries-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.entries-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
 
 .entry-card {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 1.5rem;
-    opacity: 0;
-    animation: card-fade-in 0.6s ease forwards;
-    animation-delay: var(--delay);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.5rem;
+  opacity: 0;
+  animation: card-fade-in 0.6s ease forwards;
+  animation-delay: var(--delay);
 }
 
 .entry-message {
-    font-family: 'Space Mono', monospace;
-    font-size: 1rem;
-    line-height: 1.7;
-    margin: 0 0 1rem 0;
-    color: var(--primary-text);
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  line-height: 1.7;
+  margin: 0 0 1rem 0;
+  color: var(--primary-text);
 }
 
 .entry-footer {
-    font-family: 'Space Mono', monospace;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.8rem;
-    color: var(--secondary-text);
+  font-family: 'Space Mono', monospace;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--secondary-text);
 }
 
 @keyframes card-fade-in {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-
 </style>

@@ -1,24 +1,19 @@
 from rest_framework import serializers
 from .models import GuestbookEntry
-from allauth.socialaccount.models import SocialAccount
+from django.contrib.auth.models import User
 
-class UserSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    avatar_url = serializers.URLField()
+# This serializer will be used to get the current user's information.
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
 
+# This serializer handles the guestbook entries.
 class GuestbookEntrySerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
+    # This will display the user's username as a string.
+    user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = GuestbookEntry
+        # The 'user' is handled automatically by the view, so it's read-only here.
         fields = ['id', 'user', 'message', 'created_at']
-
-    def get_user(self, obj):
-        try:
-            social_account = SocialAccount.objects.get(user=obj.user, provider='github')
-            return {
-                'username': social_account.extra_data.get('login'),
-                'avatar_url': social_account.extra_data.get('avatar_url')
-            }
-        except SocialAccount.DoesNotExist:
-            return {'username': obj.user.username, 'avatar_url': ''}

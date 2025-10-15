@@ -2,9 +2,11 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+# -------------------- BASE CONFIG --------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
+# -------------------- ENVIRONMENT --------------------
 if os.getenv('DJANGO_ENV') == 'production':
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     DEBUG = False
@@ -14,6 +16,7 @@ else:
     DEBUG = True
     ALLOWED_HOSTS = ["*"]
 
+# -------------------- APPLICATIONS --------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -21,13 +24,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Your apps
     'analyzer',
     'chatbot',
     'guestbook',
+
+    # Third-party
     'rest_framework',
     'corsheaders',
-
-    # Allauth apps
     'django.contrib.sites',
     'allauth',
     'allauth.account',
@@ -35,7 +40,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.github',
 ]
 
-# --- CORRECTED MIDDLEWARE ---
+# -------------------- MIDDLEWARE --------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -45,13 +50,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Add this line for allauth
     'allauth.account.middleware.AccountMiddleware',
 ]
 
+# -------------------- URLS & WSGI --------------------
 ROOT_URLCONF = 'pants_backend.urls'
 WSGI_APPLICATION = 'pants_backend.wsgi.application'
 
+# -------------------- TEMPLATES --------------------
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -68,6 +74,7 @@ TEMPLATES = [
     },
 ]
 
+# -------------------- DATABASE --------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -75,24 +82,36 @@ DATABASES = {
     }
 }
 
+# -------------------- INTERNATIONALIZATION --------------------
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+# -------------------- STATIC FILES --------------------
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# -------------------- CORS & CSRF --------------------
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:5174",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
+# -------------------- API KEYS --------------------
 USDA_API_KEY = os.getenv("USDA_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Allauth settings
+# -------------------- AUTHENTICATION --------------------
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -101,17 +120,19 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
+# -------------------- GITHUB OAUTH --------------------
 SOCIALACCOUNT_PROVIDERS = {
     'github': {
-        'SCOPE': [
-            'read:user',
-        ],
+        'APP': {
+            'client_id': os.getenv('GITHUB_CLIENT_ID'),
+            'secret': os.getenv('GITHUB_SECRET_KEY'),
+            'key': ''
+        },
+        'SCOPE': ['read:user'],
     }
 }
 
-LOGIN_REDIRECT_URL = 'http://localhost:5173/guestbook'
+# After successful login, redirect user to frontend
+LOGIN_REDIRECT_URL = 'http://127.0.0.1:8000/guestbook'
+LOGOUT_REDIRECT_URL = '/'
 
-# --- ADD THIS FOR YOUR STATIC FILES (AUDIO, CSS, IMAGES) ---
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
