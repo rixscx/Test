@@ -4,117 +4,131 @@ import { ref, watch, nextTick } from 'vue';
 const isChatOpen = ref(false);
 const chatContainerRef = ref(null);
 const neuralNodeRef = ref(null);
+const messageAreaRef = ref(null); // Ref for the message area
 
 const initialMessage = { id: 1, text: "I am Pipo. Systems online.", sender: 'bot' };
 const messages = ref([]);
 const userInput = ref('');
 const isBotTyping = ref(false);
 const showConstruction = ref(false);
-const isClosing = ref(false); // State to track closing animation
+const isClosing = ref(false);
 
-// Updated function for symmetrical open/close animations
 const toggleChat = () => {
-  if (isChatOpen.value) {
-    // --- Start Closing Sequence ---
-    isClosing.value = true;
-    isChatOpen.value = false; // Triggers chat window fade out
-    showConstruction.value = true; // Show wireframe for "un-draw" animation
-    
-    setTimeout(() => {
-      showConstruction.value = false;
-      isClosing.value = false; // Reset state after animation
-    }, 800); // Matches animation duration
-  } else {
-    // --- Start Opening Sequence ---
-    isClosing.value = false;
-    showConstruction.value = true;
-    setTimeout(() => {
-      isChatOpen.value = true;
-      if (messages.value.length === 0) {
-        setTimeout(() => typeBotMessage(initialMessage.text), 500);
-      }
-    }, 800); // Wait for construction animation
-    
-    setTimeout(() => {
-      // Hide the wireframe only if we are not in the middle of closing
-      if (!isClosing.value) {
-        showConstruction.value = false;
-      }
-    }, 1600);
-  }
+    if (isChatOpen.value) {
+        isClosing.value = true;
+        isChatOpen.value = false;
+        showConstruction.value = true;
+        setTimeout(() => {
+            showConstruction.value = false;
+            isClosing.value = false;
+        }, 800);
+    } else {
+        isClosing.value = false;
+        showConstruction.value = true;
+        setTimeout(() => {
+            isChatOpen.value = true;
+            if (messages.value.length === 0) {
+                setTimeout(() => typeBotMessage(initialMessage.text), 500);
+            }
+        }, 800);
+        setTimeout(() => {
+            if (!isClosing.value) {
+                showConstruction.value = false;
+            }
+        }, 1600);
+    }
 };
 
 const typeBotMessage = (responseText) => {
-  isBotTyping.value = true;
-  let partialText = '';
-  const newMessage = {
-    id: Date.now(),
-    text: '',
-    sender: 'bot'
-  };
-  messages.value.push(newMessage);
-  
-  const messageIndex = messages.value.length - 1;
-  let charIndex = 0;
+    isBotTyping.value = true;
+    let partialText = '';
+    const newMessage = {
+        id: Date.now(),
+        text: '',
+        sender: 'bot'
+    };
+    messages.value.push(newMessage);
+    
+    const messageIndex = messages.value.length - 1;
+    let charIndex = 0;
 
-  const typingInterval = setInterval(() => {
-    if (charIndex < responseText.length) {
-      partialText += responseText[charIndex];
-      messages.value[messageIndex].text = partialText;
-      charIndex++;
-    } else {
-      clearInterval(typingInterval);
-      isBotTyping.value = false;
-    }
-  }, 30);
+    const typingInterval = setInterval(() => {
+        if (charIndex < responseText.length) {
+            partialText += responseText[charIndex];
+            if (messages.value[messageIndex]) {
+                messages.value[messageIndex].text = partialText;
+            }
+            charIndex++;
+        } else {
+            clearInterval(typingInterval);
+            isBotTyping.value = false;
+        }
+    }, 30);
 };
 
-const sendMessage = () => {
-  const text = userInput.value.trim();
-  if (text === '' || isBotTyping.value) return;
+const sendMessage = async () => {
+    const text = userInput.value.trim();
+    if (text === '' || isBotTyping.value) return;
 
-  messages.value.push({
-    id: Date.now(),
-    text: text,
-    sender: 'user'
-  });
-  userInput.value = '';
+    messages.value.push({
+        id: Date.now(),
+        text: text,
+        sender: 'user'
+    });
 
-  setTimeout(() => {
-    const cannedResponse = "Your query has been processed. I am capable of analyzing a wide spectrum of data. Please proceed with your next inquiry.";
-    typeBotMessage(cannedResponse);
-  }, 1000);
+    const userMessage = userInput.value;
+    userInput.value = '';
+    isBotTyping.value = true;
+
+    try {
+        const response = await fetch('http://localhost:8000/api/chatbot/chat/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMessage })
+        });
+
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+        typeBotMessage(data.response);
+
+    } catch (error) {
+        console.error("Error sending message:", error);
+        typeBotMessage('Sorry, I am having trouble connecting.');
+    }
 };
 
 const handleClickOutside = (event) => {
-  if (isChatOpen.value &&
-      chatContainerRef.value &&
-      !chatContainerRef.value.contains(event.target) &&
-      neuralNodeRef.value &&
-      !neuralNodeRef.value.contains(event.target)) {
-    toggleChat();
-  }
+    if (
+        isChatOpen.value &&
+        chatContainerRef.value &&
+        !chatContainerRef.value.contains(event.target) &&
+        neuralNodeRef.value &&
+        !neuralNodeRef.value.contains(event.target)
+    ) {
+        toggleChat();
+    }
 };
 
 watch(isChatOpen, (isOpen) => {
-  if (isOpen) {
     nextTick(() => {
-      document.addEventListener('mousedown', handleClickOutside);
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
     });
-  } else {
-    document.removeEventListener('mousedown', handleClickOutside);
-  }
 });
 
 watch(messages, () => {
-  nextTick(() => {
-    const chatArea = document.querySelector('.chat-messages');
-    if (chatArea) {
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
-  });
+    nextTick(() => {
+        if (messageAreaRef.value) {
+            messageAreaRef.value.scrollTop = messageAreaRef.value.scrollHeight;
+        }
+    });
 }, { deep: true });
-
 </script>
 
 <template>
@@ -136,55 +150,56 @@ watch(messages, () => {
     </main>
 
     <div class="chatbot-container">
-        <transition name="construct-fade">
-            <svg v-if="showConstruction" class="construction-svg" viewBox="0 0 400 600">
-                <rect :class="['construct-wireframe', { 'closing': isClosing }]" x="1" y="1" width="398" height="598" rx="24"/>
-            </svg>
-        </transition>
+      <transition name="construct-fade">
+        <svg v-if="showConstruction" class="construction-svg" viewBox="0 0 400 600">
+          <rect :class="['construct-wireframe', { 'closing': isClosing }]" x="1" y="1" width="398" height="598" rx="24"/>
+        </svg>
+      </transition>
 
-        <transition name="construct-materialize">
-            <div v-if="isChatOpen" class="neural-construct" ref="chatContainerRef">
-                <div class="neural-bg layer1"></div>
-                <div class="neural-bg layer2"></div>
-                <div class="neural-bg layer3"></div>
+      <transition name="construct-materialize">
+        <div v-if="isChatOpen" class="neural-construct" ref="chatContainerRef">
+          <div class="neural-bg layer1"></div>
+          <div class="neural-bg layer2"></div>
+          <div class="neural-bg layer3"></div>
 
-                <header class="chat-header">
-                    <div class="header-title"><h3>Pipo</h3></div>
-                    <button @click="toggleChat" class="close-btn" aria-label="Close Chat">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                    </button>
-                </header>
-        
-                <main class="chat-messages">
-                    <div v-for="(message, index) in messages" 
-                         :key="message.id" 
-                         :class="['message-wrapper', message.sender]"
-                         :style="{ '--index': index }">
-                        <div class="message">
-                            {{ message.text }}
-                            <span v-if="message.sender === 'bot' && isBotTyping && messages[messages.length - 1].id === message.id" class="typing-cursor"></span>
-                        </div>
-                    </div>
-                    <div v-if="isBotTyping && messages[messages.length-1]?.sender !== 'bot'" class="message-wrapper bot">
-                        <div class="message typing-node">
-                            <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-                        </div>
-                    </div>
-                </main>
-        
-                <footer class="chat-input-area">
-                    <input type="text" placeholder="Initiate query..." v-model="userInput" @keyup.enter="sendMessage"/>
-                    <button class="send-btn" @click="sendMessage" aria-label="Send Message">
-                        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                    </button>
-                </footer>
+          <header class="chat-header">
+            <div class="header-title"><h3>Pipo</h3></div>
+            <button @click="toggleChat" class="close-btn" aria-label="Close Chat">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </header>
+    
+          <main class="chat-messages" ref="messageAreaRef">
+            <div 
+              v-for="(message, index) in messages" 
+              :key="message.id" 
+              :class="['message-wrapper', message.sender]"
+              :style="{ '--index': index }">
+              <div class="message">
+                {{ message.text }}
+                <span v-if="message.sender === 'bot' && isBotTyping && messages[messages.length - 1].id === message.id" class="typing-cursor"></span>
+              </div>
             </div>
+            <div v-if="isBotTyping && messages[messages.length-1]?.sender !== 'bot'" class="message-wrapper bot">
+              <div class="message typing-node">
+                <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+              </div>
+            </div>
+          </main>
+    
+          <footer class="chat-input-area">
+            <input type="text" placeholder="Initiate query..." v-model="userInput" @keyup.enter="sendMessage"/>
+            <button class="send-btn" @click="sendMessage" aria-label="Send Message">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </footer>
+        </div>
       </transition>
 
       <button class="neural-node" @click="toggleChat" :class="{ 'open': isChatOpen }" aria-label="Open Pipo" ref="neuralNodeRef">
         <svg class="node-svg" viewBox="0 0 100 100">
-            <path class="node-path" d="M50 10 L90 50 L50 90 L10 50 Z" />
-            <path class="node-path" d="M20 20 L80 80 M80 20 L20 80" />
+          <path class="node-path" d="M50 10 L90 50 L50 90 L10 50 Z" />
+          <path class="node-path" d="M20 20 L80 80 M80 20 L20 80" />
         </svg>
       </button>
     </div>
@@ -192,14 +207,14 @@ watch(messages, () => {
 </template>
 
 <style>
-/* --- Global Styles --- */
+/* --- Your styles remain unchanged --- */
 :root {
-  --bg-color: #000000;
-  --surface-color: #0d0d0d;
-  --primary-text: #e5e5e5;
-  --secondary-text: #888888;
-  --border-color: #222;
-  --accent-glow: #ffffff;
+    --bg-color: #000000;
+    --surface-color: #0d0d0d;
+    --primary-text: #e5e5e5;
+    --secondary-text: #888888;
+    --border-color: #222;
+    --accent-glow: #ffffff;
 }
 body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); color: var(--primary-text); margin: 0; }
 #app { display: flex; flex-direction: column; height: 100vh; }
@@ -217,27 +232,34 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); co
     right: 2rem;
     width: 400px;
     height: 600px;
-    pointer-events: none;
+    pointer-events: all; 
     z-index: 1001;
 }
 
 /* Neural Node Trigger */
 .neural-node {
-  position: absolute; bottom: 0; right: 0;
-  width: 64px; height: 64px;
-  background: transparent; border: none;
-  cursor: pointer; pointer-events: all;
-  transition: all 0.5s ease;
-  z-index: 2;
+    position: absolute; bottom: 0; right: 0;
+    width: 64px; height: 64px;
+    background: transparent; border: none;
+    cursor: pointer; pointer-events: all;
+    transition: all 0.5s ease;
+    z-index: 100;
 }
+
+.neural-construct input {
+    pointer-events: all;
+    position: relative;
+    z-index: 10;
+}
+
 .neural-node.open { transform: scale(0); opacity: 0; }
 .neural-node .node-svg { width: 100%; height: 100%; overflow: visible; }
 .neural-node .node-path {
-  fill: none; stroke: var(--accent-glow); stroke-width: 2;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 2px var(--accent-glow));
-  animation: morph-node 8s infinite ease-in-out, rotate-node 12s infinite linear;
-  transform-origin: center;
+    fill: none; stroke: var(--accent-glow); stroke-width: 2;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 2px var(--accent-glow));
+    animation: morph-node 8s infinite ease-in-out, rotate-node 12s infinite linear;
+    transform-origin: center;
 }
 @keyframes morph-node { 50% { transform: scale(0.8) rotate(180deg); } }
 @keyframes rotate-node { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -268,16 +290,16 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); co
 
 /* Chat Window */
 .neural-construct {
-  position: absolute; bottom: 0; right: 0;
-  width: 400px; height: 600px;
-  max-height: calc(100vh - 120px);
-  display: flex; flex-direction: column;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
-  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  pointer-events: all;
+    position: absolute; bottom: 0; right: 0;
+    width: 400px; height: 600px;
+    max-height: calc(100vh - 120px);
+    display: flex; flex-direction: column;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    pointer-events: all; 
 }
 .construct-materialize-enter-active { transition: all 0.5s ease 0.3s; }
 .construct-materialize-leave-active { transition: all 0.3s ease; }
@@ -299,8 +321,34 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); co
 .header-title h3 { margin: 0; font-weight: 500; letter-spacing: 1px; }
 .close-btn { background: none; border: none; cursor: pointer; color: var(--secondary-text); fill: var(--secondary-text); transition: all 0.2s; }
 .close-btn:hover { color: var(--primary-text); fill: var(--primary-text); transform: scale(1.1); }
-.chat-input-area { display: flex; padding: 1rem; border-top: 1px solid var(--border-color); align-items: center; background: var(--surface-color); }
-.chat-input-area input { flex-grow: 1; border: none; background: transparent; color: var(--primary-text); padding: 0.5rem 0; font-size: 1rem; line-height: 1.5; outline: none; }
+
+.chat-input-area { 
+    display: flex; 
+    padding: 1rem; 
+    border-top: 1px solid var(--border-color); 
+    align-items: center; 
+    background: var(--surface-color); 
+}
+
+.chat-input-area input { 
+    flex-grow: 1; 
+    background: #1a1a1a; 
+    color: var(--primary-text); 
+    padding: 0.75rem 1rem; 
+    font-size: 1rem; 
+    line-height: 1.5; 
+    border: 1px solid var(--border-color); 
+    border-radius: 8px; 
+    outline: none; 
+    margin-right: 0.75rem; 
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-input-area input:focus {
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
 .send-btn { background: none; border: none; cursor: pointer; color: var(--primary-text); fill: var(--primary-text); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .send-btn:hover { transform: scale(1.2); }
 
