@@ -4,27 +4,26 @@ from django.http import HttpResponse
 
 def eden_purple_theme_status(request):
     """
-    Returns the AEGIS OS with CSS enhancements for performance and Safari compatibility.
+    Returns the "AEGIS OS" with corrected, high-visibility ASCII art.
     """
 
-    # ASCII art for "EDEN"
+    # --- CORRECTED ASCII ART ---
+    # Replaced with solid block characters for maximum visibility.
     eden_art = """
 ███████╗██████╗ ███████╗███╗   ██╗
 ██╔════╝██╔══██╗██╔════╝████╗  ██║
 █████╗  ██║  ██║█████╗  ██╔██╗ ██║
-██══╝  ██║  ██║██╔══╝  ██║╚██╗██║
+██╔══╝  ██║  ██║██╔══╝  ██║╚██╗██║
 ███████╗██████╔╝███████╗██║ ╚████║
 ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═══╝
 """
-
-    # ASCII art for "BACKEND"
     backend_art = """
-██████╗ █████╗  ███████╗██╗   ██╗███████╗███╗   ██╗██████╗
+██████╗ █████╗  ███████╗██╗   ██╗███████╗███╗   ██╗██████╗ 
 ██╔══██╗██╔══██╗██╔════╝██║   ██║██╔════╝████╗  ██║██╔══██╗
 ██████╔╝███████║█████╗  ███████║█████╗  ██╔██╗ ██║██║  ██║
-██╔══██╗██╔══██║██══╝  ██╔══██║██╔══╝  ██║╚██╗██║██║  ██║
+██╔══██╗██╔══██║██╔══╝  ██╔══██║██╔══╝  ██║╚██╗██║██║  ██║
 ██████╔╝██║  ██║███████╗██║   ██║███████╗██║ ╚████║██████╔╝
-╚═════╝ ╚ ╝  ╚═╝╚══════╝╚═╝   ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝
+╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝   ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝ 
 """
 
     html_content = f"""
@@ -34,7 +33,6 @@ def eden_purple_theme_status(request):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>AEGIS OS</title>
-        <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
@@ -89,8 +87,6 @@ def eden_purple_theme_status(request):
                 background: var(--window-bg);
                 border: 1px solid var(--accent-red);
                 box-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
-                /* --- FIXED: Added Safari compatibility --- */
-                -webkit-backdrop-filter: blur(10px);
                 backdrop-filter: blur(10px);
                 z-index: 5;
             }}
@@ -99,8 +95,6 @@ def eden_purple_theme_status(request):
                 color: var(--background);
                 padding: 5px 10px;
                 cursor: move;
-                /* --- FIXED: Added Safari compatibility --- */
-                -webkit-user-select: none;
                 user-select: none;
             }}
             .window-body {{
@@ -111,7 +105,9 @@ def eden_purple_theme_status(request):
 
             #ident-window {{ top: 5%; left: 5%; width: 550px; }}
             #ident-window pre {{
-                font-size: 0.8em; line-height: 0.9;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 0.8em;
+                line-height: 1.1; /* Adjusted for better spacing */
                 opacity: 0;
                 animation: textFlickerIn 1s forwards;
             }}
@@ -136,6 +132,7 @@ def eden_purple_theme_status(request):
                 background: rgba(0,0,0,0.5);
                 box-shadow: 0 0 10px var(--accent-red);
                 animation: scanline 3s linear infinite;
+                
             }}
 
             #network-window {{ top: 40%; left: 5%; width: 550px; }}
@@ -166,28 +163,13 @@ def eden_purple_theme_status(request):
                 animation: blink 1s step-end infinite;
             }}
 
-            #mute-btn {{
-                position: fixed; bottom: 15px; right: 15px; z-index: 100;
-                background: none; border: 1px solid var(--accent-white);
-                color: var(--accent-white); padding: 5px 10px;
-                cursor: pointer;
-                opacity: 0.7;
-            }}
-            #mute-btn:hover {{ opacity: 1; }}
-
             @keyframes blink {{ 50% {{ opacity: 0; }} }}
             @keyframes pulse {{ 50% {{ opacity: 0.8; filter: drop-shadow(0 0 25px var(--accent-red)); }} }}
-            
-            /* --- FIXED: More performant scanline animation --- */
-            @keyframes scanline {{
-                0% {{ transform: translateY(-20px); }}
-                100% {{ transform: translateY(220px); }}
-            }}
-            
-            /* --- FIXED: More performant text animation --- */
+            @keyframes scanline {{ from {{ top: -10px; }} to {{ top: 110%; }} }}
             @keyframes textFlickerIn {{
-                0% {{ opacity: 0; filter: blur(10px); }}
-                100% {{ opacity: 1; filter: blur(0); }}
+                0% {{ opacity: 0; text-shadow: 0 0 20px var(--accent-red); }}
+                50% {{ opacity: 1; text-shadow: 0 0 5px var(--accent-red); }}
+                100% {{ opacity: 1; text-shadow: none; }}
             }}
         </style>
     </head>
@@ -241,32 +223,12 @@ def eden_purple_theme_status(request):
             </div>
         </div>
         
-        <button id="mute-btn">ENABLE SOUND</button>
-        <audio id="loading-audio" loop preload="auto"><source src="/static/load.mp3" type="audio/mpeg"></audio>
+        <audio id="main-audio" loop preload="auto"><source src="/static/load.mp3" type="audio/mpeg"></audio>
 
         <script>
             // --- Audio ---
-            const loadingAudio = document.getElementById('loading-audio');
-            const muteBtn = document.getElementById('mute-btn');
+            const mainAudio = document.getElementById('main-audio');
             let soundInitialized = false;
-            let isMuted = true;
-
-            loadingAudio.muted = true;
-            
-            muteBtn.addEventListener('click', () => {{
-                if (!soundInitialized) {{
-                    isMuted = false;
-                    loadingAudio.muted = false;
-                    loadingAudio.volume = 0.7;
-                    loadingAudio.play().catch(e => console.error("Audio playback was prevented. Please interact with the page first.", e));
-                    muteBtn.textContent = 'MUTE';
-                    soundInitialized = true;
-                }} else {{
-                    isMuted = !isMuted;
-                    loadingAudio.muted = isMuted;
-                    muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
-                }}
-            }});
             
             // --- Loader ---
             const loaderLog = document.getElementById('loader-log');
@@ -301,6 +263,12 @@ def eden_purple_theme_status(request):
             const cliOutput = document.getElementById('cli-output');
             cliInput.addEventListener('keydown', function(e) {{
                 if (e.key === 'Enter') {{
+                    if (!soundInitialized) {{
+                        mainAudio.volume = 0.5;
+                        soundInitialized = true;
+                        mainAudio.play().then(() => mainAudio.pause());
+                    }}
+
                     const command = this.value.trim().toLowerCase();
                     output(`> ${{command}}`);
                     handleCommand(command);
@@ -309,12 +277,26 @@ def eden_purple_theme_status(request):
             }});
             function handleCommand(cmd) {{
                 const commands = {{
-                    'help': 'Commands: help, status, scan, sysinfo, clear',
+                    'help': "Commands: help, status, scan, sysinfo, clear, jam, chill",
                     'status': 'All systems nominal. AEGIS Core running at 100%.',
                     'sysinfo': `OS: AEGIS v3.1<br>Core: Quantum Entanglement Processor<br>Memory: 65536MB`,
                     'clear': () => cliOutput.innerHTML = '',
-                    'scan': () => scanEndpoints()
+                    'scan': () => scanEndpoints(),
+                    'jam': () => {{
+                        if (!soundInitialized) {{
+                            output(`<span class="cli-error">Audio system not ready. Type any command once to initialize.</span>`);
+                            return;
+                        }}
+                        mainAudio.play().catch(e => output(`<span class="cli-error">Playback failed.</span>`));
+                        output('Now Playing: load.mp3');
+                    }},
+                    'chill': () => {{
+                        mainAudio.pause();
+                        mainAudio.currentTime = 0;
+                        output('Audio Playback Stopped.');
+                    }}
                 }};
+                
                 const response = commands[cmd];
                 if (response) {{
                      if (typeof response === 'function') response(); else output(response);
@@ -322,6 +304,7 @@ def eden_purple_theme_status(request):
                     output(`<span class="cli-error">Error: Command not found '${{cmd}}'</span>`);
                 }}
             }}
+            
             function output(message) {{ cliOutput.innerHTML += `<div>${{message}}</div>`; cliOutput.scrollTop = cliOutput.scrollHeight; }}
             function scanEndpoints() {{
                 const statuses = document.querySelectorAll('.endpoint-status');
