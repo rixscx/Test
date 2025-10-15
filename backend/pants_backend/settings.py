@@ -2,21 +2,20 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-# -------------------- BASE CONFIG --------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-# -------------------- ENVIRONMENT --------------------
+# It is recommended to set the DJANGO_ENV environment variable to "production" in your production environment
 if os.getenv('DJANGO_ENV') == 'production':
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     DEBUG = False
-    ALLOWED_HOSTS = ['your_production_domain.com']
+    ALLOWED_HOSTS = ['your_production_domain.com'] # Replace with your actual domain
 else:
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-default-dev-key")
     DEBUG = True
     ALLOWED_HOSTS = ["*"]
 
-# -------------------- APPLICATIONS --------------------
+# --- CORRECTED APPLICATIONS ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -24,15 +23,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Your apps
-    'analyzer',
-    'chatbot',
-    'guestbook',
-
-    # Third-party
     'rest_framework',
     'corsheaders',
+    'analyzer',
+    'guestbook', # Added your app
+    'chatbot',   # Added your app
+
+    # --- ADDED: These are required for allauth ---
     'django.contrib.sites',
     'allauth',
     'allauth.account',
@@ -40,7 +37,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.github',
 ]
 
-# -------------------- MIDDLEWARE --------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -50,14 +46,13 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # --- ADDED: This is required for allauth ---
     'allauth.account.middleware.AccountMiddleware',
 ]
 
-# -------------------- URLS & WSGI --------------------
 ROOT_URLCONF = 'pants_backend.urls'
 WSGI_APPLICATION = 'pants_backend.wsgi.application'
 
-# -------------------- TEMPLATES --------------------
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -66,7 +61,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
-                'django.template.context_processors.request',
+                'django.template.context_processors.request', # Required by allauth
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -74,7 +69,6 @@ TEMPLATES = [
     },
 ]
 
-# -------------------- DATABASE --------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -82,36 +76,31 @@ DATABASES = {
     }
 }
 
-# -------------------- INTERNATIONALIZATION --------------------
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# -------------------- STATIC FILES --------------------
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# -------------------- CORS & CSRF --------------------
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True
-
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# -------------------- API KEYS --------------------
 USDA_API_KEY = os.getenv("USDA_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# -------------------- AUTHENTICATION --------------------
+# --- ADDED: These settings are required for allauth ---
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
@@ -120,19 +109,13 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 
-# -------------------- GITHUB OAUTH --------------------
 SOCIALACCOUNT_PROVIDERS = {
     'github': {
-        'APP': {
-            'client_id': os.getenv('GITHUB_CLIENT_ID'),
-            'secret': os.getenv('GITHUB_SECRET_KEY'),
-            'key': ''
-        },
-        'SCOPE': ['read:user'],
+        'SCOPE': [
+            'read:user',
+        ],
     }
 }
 
-# After successful login, redirect user to frontend
-LOGIN_REDIRECT_URL = 'http://127.0.0.1:8000/guestbook'
-LOGOUT_REDIRECT_URL = '/'
-
+LOGIN_REDIRECT_URL = 'http://localhost:5173/guestbook'
+SOCIALACCOUNT_LOGIN_ON_GET = True

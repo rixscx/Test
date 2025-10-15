@@ -1,9 +1,16 @@
+# guestbook/urls.py
+
 from django.urls import path
-from .views import GuestbookEntryList, GuestbookEntryCreate
+# 👇 ADD THIS LINE to import your views
+from .views import GuestbookEntryList, GuestbookEntryCreate, CurrentUserView
 
 urlpatterns = [
-    # GET requests to /api/guestbook/ will go to the list view.
-    path('', GuestbookEntryList.as_view(), name='guestbook-list'),
-    # POST requests to /api/guestbook/ will go to the create view.
-    path('', GuestbookEntryCreate.as_view(), name='guestbook-create'),
+    # Path to list all entries (e.g., /api/guestbook/)
+    path('', GuestbookEntryList.as_view(), name='guestbook_list'),
+
+    # Path to create a new entry (e.g., /api/guestbook/create/)
+    path('create/', GuestbookEntryCreate.as_view(), name='guestbook_create'),
+
+    # Path to get the current user's data (e.g., /api/guestbook/user/)
+    path('user/', CurrentUserView.as_view(), name='current_user'),
 ]

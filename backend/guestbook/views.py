@@ -1,29 +1,35 @@
 from rest_framework import generics, permissions
 from .models import GuestbookEntry
 from .serializers import GuestbookEntrySerializer, UserSerializer
-from django.contrib.auth.models import User
-from rest_framework.response import Response
 
-# This view allows anyone to see the guestbook entries.
+# --- View to LIST all guestbook entries ---
+# This endpoint is public and can be accessed by anyone.
 class GuestbookEntryList(generics.ListAPIView):
     queryset = GuestbookEntry.objects.all().order_by('-created_at')
     serializer_class = GuestbookEntrySerializer
     permission_classes = [permissions.AllowAny]
 
-# This view allows ONLY logged-in users to create a new entry.
+
+# --- View to CREATE a new guestbook entry ---
+# This endpoint requires the user to be logged in.
 class GuestbookEntryCreate(generics.CreateAPIView):
     queryset = GuestbookEntry.objects.all()
     serializer_class = GuestbookEntrySerializer
-    permission_classes = [permissions.IsAuthenticated] # Requires user to be logged in
+    permission_classes = [permissions.IsAuthenticated]
 
-    # This method automatically assigns the logged-in user to the new entry.
+    # This method is called when a new entry is saved.
+    # It automatically assigns the currently logged-in user to the entry.
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-# This new view will tell your frontend who is currently logged in.
+
+# --- View to GET the currently logged-in user's data ---
+# This is the crucial endpoint for your Vue frontend to check login status.
+# It requires authentication and uses the UserSerializer to include the GitHub avatar.
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    # This method returns the user object of the current request.
     def get_object(self):
         return self.request.user

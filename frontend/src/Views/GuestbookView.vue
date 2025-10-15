@@ -3,45 +3,46 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 
 // --- HELPER FUNCTION to get the CSRF token from cookies ---
 function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
     }
-    return cookieValue;
+  }
+  return cookieValue;
 }
 
-// --- COMPONENT LOGIC (Corrected for authentication) ---
+// --- COMPONENT LOGIC ---
 const entries = ref([]);
 const newEntry = ref('');
-const newName = ref(''); // Kept for the template, but not submitted
+const newName = ref('');
 const isLoading = ref(true);
 const errorMessage = ref('');
-const currentUser = ref(null); // This will store the logged-in user data
+const currentUser = ref(null);
 
 // --- API FUNCTIONS ---
 
 // Fetches the current logged-in user from your Django backend
 async function fetchCurrentUser() {
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/user/', {
-      credentials: 'include', // This tells the browser to send login cookies
+    const response = await fetch('http://127.0.0.1:8000/api/guestbook/user/', {
+      credentials: 'include', // Crucial: Sends session cookies with the request
       headers: { 'Accept': 'application/json' },
     });
     if (response.ok) {
       currentUser.value = await response.json();
     } else {
-      currentUser.value = null;
+      currentUser.value = null; // User is not logged in
     }
   } catch (error) {
     currentUser.value = null;
-    console.error('Not logged in or API error:', error);
+    errorMessage.value = 'Cannot connect to authentication service.';
+    console.error('API error while fetching user:', error);
   }
 }
 
@@ -49,10 +50,10 @@ async function fetchCurrentUser() {
 async function fetchEntries() {
   try {
     isLoading.value = true;
+    errorMessage.value = ''; // Reset error on new fetch
     const response = await fetch('http://127.0.0.1:8000/api/guestbook/');
     if (!response.ok) throw new Error('Failed to fetch entries.');
     const data = await response.json();
-    // The backend now sends sorted data, so we can use it directly
     entries.value = data;
   } catch (error) {
     errorMessage.value = 'Could not connect to the guestbook archives.';
@@ -64,35 +65,36 @@ async function fetchEntries() {
 
 // Submits a new entry (only if logged in)
 async function submitEntry() {
-  // We only check for the message and if a user is logged in
   if (!newEntry.value.trim() || !currentUser.value) return;
 
   try {
+    errorMessage.value = ''; // Reset previous errors
     const csrftoken = getCookie('csrftoken');
-    // CORRECTED: Posting to the correct 'create' endpoint
     const response = await fetch('http://127.0.0.1:8000/api/guestbook/create/', {
       method: 'POST',
-      credentials: 'include', // Send cookies with the POST request
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrftoken, // The security token
+        'X-CSRFToken': csrftoken,
       },
-      // CORRECTED: Only sending the 'message', as the backend handles the user
       body: JSON.stringify({
         message: newEntry.value,
       }),
     });
 
     if (!response.ok) {
-        if (response.status === 403) {
-            errorMessage.value = 'Authentication failed. Please log in again.';
-            currentUser.value = null; // Clear user state on failure
-        } else {
-            throw new Error('Failed to submit entry.');
-        }
+      if (response.status === 403) {
+        errorMessage.value = 'Authentication failed. Please log in again.';
+        currentUser.value = null; // CORRECTED: Force UI to logged-out state on auth failure
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to submit entry.');
+      }
     } else {
-        newEntry.value = '';
-        await fetchEntries(); // Refresh the list after posting
+      // IMPROVED: Instead of re-fetching all entries, add the new one to the list
+      const createdEntry = await response.json();
+      entries.value.unshift(createdEntry); // Adds the new entry to the top of the list
+      newEntry.value = '';
     }
   } catch (error) {
     errorMessage.value = 'Your message could not be transmitted.';
@@ -100,106 +102,106 @@ async function submitEntry() {
   }
 }
 
-
-// --- BACKGROUND ANIMATION SCRIPT (No changes) ---
+// --- BACKGROUND ANIMATION SCRIPT (Unchanged) ---
 const canvasContainer = ref(null);
 let canvas, ctx, particles, animationFrameId;
 const Perlin = {
-    rand_vect: function(){ let theta = Math.random() * 2 * Math.PI; return {x: Math.cos(theta), y: Math.sin(theta)}; },
-    dot_prod_grid: function(x, y, vx, vy){ let g_vect; let d_vect = {x: x - vx, y: y - vy}; if (this.gradients[[vx,vy]]){ g_vect = this.gradients[[vx,vy]]; } else { g_vect = this.rand_vect(); this.gradients[[vx,vy]] = g_vect; } return d_vect.x * g_vect.x + d_vect.y * g_vect.y; },
-    smootherstep: function(x){ return 6*x**5 - 15*x**4 + 10*x**3; },
-    interp: function(x, a, b){ return a + this.smootherstep(x) * (b-a); },
-    seed: function(){ this.gradients = {}; this.memory = {}; },
-    get: function(x, y) { if (this.memory.hasOwnProperty([x,y])) return this.memory[[x,y]]; let xf = Math.floor(x); let yf = Math.floor(y); let tl = this.dot_prod_grid(x, y, xf,   yf); let tr = this.dot_prod_grid(x, y, xf+1, yf); let bl = this.dot_prod_grid(x, y, xf,   yf+1); let br = this.dot_prod_grid(x, y, xf+1, yf+1); let xt = this.interp(x-xf, tl, tr); let xb = this.interp(x-xf, bl, br); let v = this.interp(y-yf, xt, xb); this.memory[[x,y]] = v; return v; }
+    rand_vect: function(){ let theta = Math.random() * 2 * Math.PI; return {x: Math.cos(theta), y: Math.sin(theta)}; },
+    dot_prod_grid: function(x, y, vx, vy){ let g_vect; let d_vect = {x: x - vx, y: y - vy}; if (this.gradients[[vx,vy]]){ g_vect = this.gradients[[vx,vy]]; } else { g_vect = this.rand_vect(); this.gradients[[vx,vy]] = g_vect; } return d_vect.x * g_vect.x + d_vect.y * g_vect.y; },
+    smootherstep: function(x){ return 6*x**5 - 15*x**4 + 10*x**3; },
+    interp: function(x, a, b){ return a + this.smootherstep(x) * (b-a); },
+    seed: function(){ this.gradients = {}; this.memory = {}; },
+    get: function(x, y) { if (this.memory.hasOwnProperty([x,y])) return this.memory[[x,y]]; let xf = Math.floor(x); let yf = Math.floor(y); let tl = this.dot_prod_grid(x, y, xf,   yf); let tr = this.dot_prod_grid(x, y, xf+1, yf); let bl = this.dot_prod_grid(x, y, xf,   yf+1); let br = this.dot_prod_grid(x, y, xf+1, yf+1); let xt = this.interp(x-xf, tl, tr); let xb = this.interp(x-xf, bl, br); let v = this.interp(y-yf, xt, xb); this.memory[[x,y]] = v; return v; }
 };
 Perlin.seed();
 class Particle {
-    constructor() {
-        this.x = Math.random() * window.innerWidth;
-        this.y = Math.random() * window.innerHeight;
-        this.size = Math.random() * 1.5 + 0.5;
-        this.speed = Math.random() * 0.5 + 0.2;
-        this.angle = 0;
-        this.alpha = 0;
-    }
-    update(noiseZ, mouse) {
-        const noiseValue = Perlin.get(this.x * 0.001, this.y * 0.001 + noiseZ);
-        this.angle = noiseValue * Math.PI * 2;
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
-        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-        }
-        let dx = mouse.x - this.x;
-        let dy = mouse.y - this.y;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-        let maxDistance = mouse.radius;
-        if (distance < maxDistance) {
-            this.alpha = 1 - (distance / maxDistance);
-            this.x += dx * 0.02 * this.alpha;
-            this.y += dy * 0.02 * this.alpha;
-        } else {
-            this.alpha = 0;
-        }
-    }
-    draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + this.alpha * 0.5})`;
-        ctx.shadowColor = 'white';
-        ctx.shadowBlur = 5 + this.alpha * 10;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-    }
+    constructor() {
+        this.x = Math.random() * window.innerWidth;
+        this.y = Math.random() * window.innerHeight;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.speed = Math.random() * 0.5 + 0.2;
+        this.angle = 0;
+        this.alpha = 0;
+    }
+    update(noiseZ, mouse) {
+        const noiseValue = Perlin.get(this.x * 0.001, this.y * 0.001 + noiseZ);
+        this.angle = noiseValue * Math.PI * 2;
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+        }
+        let dx = mouse.x - this.x;
+        let dy = mouse.y - this.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        let maxDistance = mouse.radius;
+        if (distance < maxDistance) {
+            this.alpha = 1 - (distance / maxDistance);
+            this.x += dx * 0.02 * this.alpha;
+            this.y += dy * 0.02 * this.alpha;
+        } else {
+            this.alpha = 0;
+        }
+    }
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + this.alpha * 0.5})`;
+        ctx.shadowColor = 'white';
+        ctx.shadowBlur = 5 + this.alpha * 10;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 }
 let noiseZ = 0;
 function init(mouse) {
-    particles = [];
-    let numberOfParticles = (window.innerWidth * window.innerHeight) / 10000;
-    for (let i = 0; i < numberOfParticles; i++) {
-        particles.push(new Particle());
-    }
+    particles = [];
+    let numberOfParticles = (window.innerWidth * window.innerHeight) / 10000;
+    for (let i = 0; i < numberOfParticles; i++) {
+        particles.push(new Particle());
+    }
 }
 function animate(mouse) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    noiseZ += 0.0005;
-    for (let i = 0; i < particles.length; i++) {
-        particles[i].update(noiseZ, mouse);
-        particles[i].draw();
-    }
-    animationFrameId = requestAnimationFrame(() => animate(mouse));
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    noiseZ += 0.0005;
+    for (let i = 0; i < particles.length; i++) {
+        particles[i].update(noiseZ, mouse);
+        particles[i].draw();
+    }
+    animationFrameId = requestAnimationFrame(() => animate(mouse));
 }
 // --- LIFECYCLE HOOKS ---
 onMounted(async () => {
-  // --- Initialize Background Animation ---
-  canvas = document.createElement('canvas');
-  canvas.id = 'stardust-canvas';
-  canvasContainer.value.insertBefore(canvas, canvasContainer.value.firstChild);
-  ctx = canvas.getContext('2d');
-  const mouse = { x: undefined, y: undefined, radius: 150 };
-  const handleMouseMove = (event) => { mouse.x = event.x; mouse.y = event.y; };
-  window.addEventListener('mousemove', handleMouseMove);
-  const handleResize = () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    init(mouse);
-  };
-  window.addEventListener('resize', handleResize);
-  
-  handleResize();
-  animate(mouse);
+  // --- Initialize Background Animation ---
+  canvas = document.createElement('canvas');
+  canvas.id = 'stardust-canvas';
+  canvasContainer.value.insertBefore(canvas, canvasContainer.value.firstChild);
+  ctx = canvas.getContext('2d');
+  const mouse = { x: undefined, y: undefined, radius: 150 };
+  const handleMouseMove = (event) => { mouse.x = event.x; mouse.y = event.y; };
+  window.addEventListener('mousemove', handleMouseMove);
+  const handleResize = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    init(mouse);
+  };
+  window.addEventListener('resize', handleResize);
+  
+  handleResize();
+  animate(mouse);
 
-  // Fetch initial data
-  await fetchCurrentUser();
-  await fetchEntries();
+  // --- Fetch initial data ---
+  await fetchCurrentUser(); // First, check if user is logged in
+  await fetchEntries();   // Then, fetch the entries
 });
 
 onBeforeUnmount(() => {
-    // --- Cleanup Background Animation ---
-    cancelAnimationFrame(animationFrameId);
-    window.removeEventListener('resize', () => {});
-    window.removeEventListener('mousemove', () => {});
+    // --- Cleanup Background Animation ---
+    cancelAnimationFrame(animationFrameId);
+    // IMPROVED: Correctly reference the functions for removal
+    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('mousemove', handleMouseMove);
 });
 </script>
 
@@ -213,17 +215,29 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="form-panel">
-        <div v-if="currentUser" class="input-group">
-          <input type="text" :value="currentUser.username" id="nameInput" required class="input-field" disabled />
-          <label for="nameInput" class="input-label" style="top: -1rem; font-size: 0.8rem;">Callsign (Name)</label>
+        <div v-if="currentUser" class="user-profile-container">
+          <img v-if="currentUser.avatar_url" :src="currentUser.avatar_url" alt="User Avatar" class="user-avatar"/>
+          <div class="user-details">
+            <input type="text" :value="currentUser.username" id="nameInput" required class="input-field" disabled />
+            <label for="nameInput" class="input-label" style="top: -1rem; font-size: 0.8rem;">Callsign (Name)</label>
+          </div>
         </div>
+
         <div v-else class="input-group">
           <input type="text" v-model="newName" id="nameInput" required class="input-field" disabled />
           <label for="nameInput" class="input-label">Login to use your Callsign</label>
         </div>
 
         <div class="input-group">
-          <textarea v-model="newEntry" id="messageInput" required class="input-field" rows="4" :disabled="!currentUser"></textarea>
+          <textarea 
+            v-model="newEntry" 
+            id="messageInput" 
+            required 
+            class="input-field" 
+            rows="4" 
+            :disabled="!currentUser" 
+            :placeholder="currentUser ? 'Enter your message...' : 'Please log in to leave a message.'"
+          ></textarea>
           <label for="messageInput" class="input-label">Message</label>
         </div>
         
@@ -266,7 +280,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* All of your original styles are preserved here, with compatibility fixes */
+
 .guestbook-view {
   width: 100%;
   min-height: 100vh;
@@ -274,7 +288,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   background-color: var(--bg-color);
   position: relative;
-  overflow: hidden; /* Hide main scrollbar */
+  overflow: hidden;
 }
 
 :deep(#stardust-canvas) {
@@ -305,12 +319,8 @@ onBeforeUnmount(() => {
 }
 
 @keyframes scanlines {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 0 100px;
-  }
+  from { background-position: 0 0; }
+  to { background-position: 0 100px; }
 }
 
 .content-grid {
@@ -327,17 +337,9 @@ onBeforeUnmount(() => {
     "form entries";
 }
 
-.header-section {
-  grid-area: header;
-}
-
-.form-panel {
-  grid-area: form;
-}
-
-.entries-panel {
-  grid-area: entries;
-}
+.header-section { grid-area: header; }
+.form-panel { grid-area: form; }
+.entries-panel { grid-area: entries; }
 
 .page-title {
   text-align: center;
@@ -356,7 +358,6 @@ onBeforeUnmount(() => {
 
 .form-panel {
   background: rgba(13, 13, 13, 0.7);
-  /* FIXED: Added Safari compatibility */
   -webkit-backdrop-filter: blur(15px);
   backdrop-filter: blur(15px);
   border: 1px solid var(--border-color);
@@ -397,7 +398,6 @@ onBeforeUnmount(() => {
 .input-field:focus + .input-label,
 .input-field:valid + .input-label,
 .input-field:disabled + .input-label {
-  /* Keep label positioned when disabled */
   top: -1rem;
   font-size: 0.8rem;
   color: var(--primary-text);
@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  text-decoration: none; /* For the 'a' tag version */
+  text-decoration: none;
 }
 
 .submit-button svg {
@@ -443,7 +443,6 @@ onBeforeUnmount(() => {
 
 .entries-panel {
   background: rgba(13, 13, 13, 0.7);
-  /* FIXED: Added Safari compatibility */
   -webkit-backdrop-filter: blur(15px);
   backdrop-filter: blur(15px);
   border: 1px solid var(--border-color);
@@ -451,7 +450,7 @@ onBeforeUnmount(() => {
   padding: 2rem;
   display: flex;
   flex-direction: column;
-  height: 70vh; /* Fixed height for the panel */
+  height: 70vh;
 }
 
 .panel-title {
@@ -494,22 +493,12 @@ onBeforeUnmount(() => {
   animation: signal 1.2s infinite ease-in-out;
 }
 
-.signal-bar:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.signal-bar:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.signal-bar:nth-child(2) { animation-delay: 0.2s; }
+.signal-bar:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes signal {
-  0%,
-  100% {
-    transform: scaleY(0.2);
-  }
-  50% {
-    transform: scaleY(1);
-  }
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1); }
 }
 
 .entries-list {
@@ -518,22 +507,15 @@ onBeforeUnmount(() => {
   gap: 1.5rem;
   overflow-y: auto;
   flex-grow: 1;
-  padding-right: 1rem; /* Space for scrollbar */
+  padding-right: 1rem;
 }
 
-.entries-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.entries-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.entries-list::-webkit-scrollbar { width: 4px; }
+.entries-list::-webkit-scrollbar-track { background: transparent; }
 .entries-list::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 4px;
 }
-
 .entries-list {
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) transparent;
@@ -574,4 +556,24 @@ onBeforeUnmount(() => {
     transform: translateY(0);
   }
 }
+
+.user-profile-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.user-details {
+  position: relative;
+  flex-grow: 1;
+}
+
 </style>
