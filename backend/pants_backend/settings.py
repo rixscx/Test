@@ -110,3 +110,8 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 LOGIN_REDIRECT_URL = 'http://localhost:5173/guestbook'
+
+# --- ADD THIS FOR YOUR STATIC FILES (AUDIO, CSS, IMAGES) ---
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]

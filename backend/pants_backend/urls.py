@@ -4,8 +4,7 @@ from django.http import HttpResponse
 
 def eden_purple_theme_status(request):
     """
-    Returns a refined, cyberpunk-themed status page with a live 'Matrix'
-    background and a green/cyan color scheme.
+    Returns the AEGIS OS with CSS enhancements for performance and Safari compatibility.
     """
 
     # ASCII art for "EDEN"
@@ -25,7 +24,7 @@ def eden_purple_theme_status(request):
 ██████╔╝███████║█████╗  ███████║█████╗  ██╔██╗ ██║██║  ██║
 ██╔══██╗██╔══██║██══╝  ██╔══██║██╔══╝  ██║╚██╗██║██║  ██║
 ██████╔╝██║  ██║███████╗██║   ██║███████╗██║ ╚████║██████╔╝
-╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝   ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝
+╚═════╝ ╚ ╝  ╚═╝╚══════╝╚═╝   ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝
 """
 
     html_content = f"""
@@ -34,206 +33,347 @@ def eden_purple_theme_status(request):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>EDEN :: SYSTEM KERNEL</title>
+        <title>AEGIS OS</title>
+        <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
             :root {{
-                --background: #010409;
-                --terminal-bg: rgba(10, 0, 20, 0.92); 
-                --accent-cyan: #00e5ff;
-                /* Replaced magenta with a vibrant green */
-                --accent-green: #39FF14; 
-                --text-color: #f0f0f0;
+                --background: #000000;
+                --window-bg: rgba(5, 5, 5, 0.85);
+                --accent-red: #FF003C;
+                --accent-white: #FFFFFF;
                 --font-primary: 'Share Tech Mono', monospace;
             }}
 
-            * {{
-                box-sizing: border-box;
-                margin: 0;
-                padding: 0;
-            }}
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 
             body {{
                 font-family: var(--font-primary);
                 background-color: var(--background);
-                color: var(--text-color);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
+                color: var(--accent-white);
                 overflow: hidden;
             }}
-
-            #matrix-canvas {{
-                position: fixed;
-                top: 0;
-                left: 0;
+            
+            #digital-rain-canvas {{
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+            }}
+            
+            .os-container, .loader-wrapper {{
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                height: 100vh;
                 width: 100%;
-                height: 100%;
-                z-index: 1;
-            }}
-
-            .terminal-container {{
-                position: relative;
-                z-index: 2;
-                width: 90%;
-                max-width: 950px;
-                background: var(--terminal-bg);
-                /* Updated border and shadow to use the new green accent */
-                border: 1px solid var(--accent-green);
-                border-radius: 8px;
-                box-shadow: 0 0 15px rgba(57, 255, 20, 0.5); /* Green shadow */
-                backdrop-filter: blur(5px);
-                padding: 25px;
-                animation: fadeIn 1s ease-out;
-            }}
-
-            .ascii-art-wrapper {{
-                text-align: center;
-                margin-bottom: 25px;
-                animation: fadeIn 1.5s ease-out;
-            }}
-
-            .ascii-art {{
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 0.85em;
-                line-height: 1.0;
-                color: #FFFFFF; 
-                white-space: pre;
-                margin: 0;
-            }}
-
-            .status-line {{
-                border-top: 1px dashed var(--accent-cyan);
-                padding-top: 20px;
-                margin-top: 20px;
-                font-size: 1.25rem;
-                white-space: nowrap;
-                overflow: hidden;
-                width: 31ch;
-                margin-left: auto;
-                margin-right: auto;
-                animation: 
-                    typing 3.5s steps(31), 
-                    blink-caret .5s step-end infinite alternate;
-                border-right: 3px solid var(--text-color);
-            }}
-
-            .api-map {{
-                border-top: 1px dashed var(--accent-cyan);
-                padding-top: 20px;
-                margin-top: 25px;
-                text-align: center;
             }}
             
-            .api-map h3 {{
-                font-size: 1.3rem;
-                margin-bottom: 15px;
-                letter-spacing: 2px;
-                color: var(--text-color);
+            /* --- Loader --- */
+            .loader-wrapper {{ z-index: 10; color: var(--accent-white); }}
+            #loader-log-container {{
+                width: 500px;
+                border: 1px solid var(--accent-red);
+                padding: 15px;
+                background: rgba(0,0,0,0.8);
             }}
-            
-            .api-map ul {{
-                list-style: none;
+            #loader-log {{ font-size: 1rem; height: 150px; overflow: hidden; margin-bottom: 15px; }}
+            .progress-bar {{ height: 4px; width: 100%; background-color: rgba(255, 0, 60, 0.2); }}
+            #progress {{
+                width: 0%; height: 100%; background: var(--accent-red);
+                box-shadow: 0 0 10px var(--accent-red);
+                transition: width 0.5s;
             }}
+
+            /* --- Main OS --- */
+            #os-container {{ display: none; }}
             
-            .api-map li {{
-                margin: 10px 0;
-                font-size: 1.15rem;
+            .window {{
+                position: absolute;
+                background: var(--window-bg);
+                border: 1px solid var(--accent-red);
+                box-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
+                /* --- FIXED: Added Safari compatibility --- */
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+                z-index: 5;
+            }}
+            .window-header {{
+                background: var(--accent-red);
+                color: var(--background);
+                padding: 5px 10px;
+                cursor: move;
+                /* --- FIXED: Added Safari compatibility --- */
+                -webkit-user-select: none;
+                user-select: none;
+            }}
+            .window-body {{
+                padding: 10px;
+                background-image: linear-gradient(rgba(255, 0, 60, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 0, 60, 0.05) 1px, transparent 1px);
+                background-size: 20px 20px;
+            }}
+
+            #ident-window {{ top: 5%; left: 5%; width: 550px; }}
+            #ident-window pre {{
+                font-size: 0.8em; line-height: 0.9;
                 opacity: 0;
-                transform: translateY(10px);
-                animation: slideInItem 0.5s forwards;
+                animation: textFlickerIn 1s forwards;
             }}
-            
-            .api-map li:nth-child(1) {{ animation-delay: 1.5s; }}
-            .api-map li:nth-child(2) {{ animation-delay: 1.7s; }}
-            .api-map li:nth-child(3) {{ animation-delay: 1.9s; }}
-            .api-map li:nth-child(4) {{ animation-delay: 2.1s; }}
-            .api-map li:nth-child(5) {{ animation-delay: 2.3s; }}
-            
-            .api-map .method {{
-                /* Updated method color to green */
-                color: var(--accent-green);
-                font-weight: bold;
-                margin-right: 15px;
+            #ident-window pre:last-child {{ animation-delay: 0.2s; }}
+
+
+            #core-window {{ top: 5%; right: 5%; width: 250px; text-align: center; }}
+            .avatar-container {{
+                position: relative;
+                overflow: hidden;
             }}
-            
-            .api-map .path {{
-                color: var(--accent-cyan);
+            #avatar {{
+                max-width: 100%;
+                height: auto;
+                filter: drop-shadow(0 0 15px var(--accent-red));
+                animation: pulse 4s infinite ease-in-out;
+            }}
+            .avatar-container::after {{ /* Scanline effect over avatar */
+                content: '';
+                position: absolute;
+                top: 0; left: 0; width: 100%; height: 3px;
+                background: rgba(0,0,0,0.5);
+                box-shadow: 0 0 10px var(--accent-red);
+                animation: scanline 3s linear infinite;
             }}
 
-            /* --- KEYFRAMES --- */
-            @keyframes fadeIn {{
-                from {{ opacity: 0; transform: scale(0.98); }}
-                to {{ opacity: 1; transform: scale(1); }}
+            #network-window {{ top: 40%; left: 5%; width: 550px; }}
+            .endpoint-item {{ display: flex; justify-content: space-between; margin-bottom: 5px; }}
+            .endpoint-status {{ color: var(--accent-red); }}
+            .endpoint-status.secure {{ color: #00FF7F; }}
+
+            #cli-container {{
+                position: absolute;
+                bottom: 0; left: 0; width: 100%;
+                background: rgba(0,0,0,0.9);
+                padding: 10px;
+                border-top: 1px solid var(--accent-red);
+                z-index: 10;
             }}
-            @keyframes typing {{
-                from {{ width: 0; }}
+            #cli-output {{ height: 100px; overflow-y: scroll; margin-bottom: 10px; }}
+            .cli-error {{ color: var(--accent-red); }}
+            #cli-input-line {{ display: flex; }}
+            #cli-input {{
+                flex-grow: 1; background: none; border: none;
+                color: var(--accent-white); font-family: var(--font-primary);
+                font-size: 1rem;
             }}
-            @keyframes blink-caret {{
-                50% {{ border-color: transparent; }}
+            #cli-input:focus {{ outline: none; }}
+            .cursor {{
+                width: 10px; height: 1.2rem;
+                background: var(--accent-white);
+                animation: blink 1s step-end infinite;
             }}
-            @keyframes slideInItem {{
-                to {{ opacity: 1; transform: translateY(0); }}
+
+            #mute-btn {{
+                position: fixed; bottom: 15px; right: 15px; z-index: 100;
+                background: none; border: 1px solid var(--accent-white);
+                color: var(--accent-white); padding: 5px 10px;
+                cursor: pointer;
+                opacity: 0.7;
+            }}
+            #mute-btn:hover {{ opacity: 1; }}
+
+            @keyframes blink {{ 50% {{ opacity: 0; }} }}
+            @keyframes pulse {{ 50% {{ opacity: 0.8; filter: drop-shadow(0 0 25px var(--accent-red)); }} }}
+            
+            /* --- FIXED: More performant scanline animation --- */
+            @keyframes scanline {{
+                0% {{ transform: translateY(-20px); }}
+                100% {{ transform: translateY(220px); }}
+            }}
+            
+            /* --- FIXED: More performant text animation --- */
+            @keyframes textFlickerIn {{
+                0% {{ opacity: 0; filter: blur(10px); }}
+                100% {{ opacity: 1; filter: blur(0); }}
             }}
         </style>
     </head>
     <body>
-        <canvas id="matrix-canvas"></canvas>
+        <canvas id="digital-rain-canvas"></canvas>
 
-        <div class="terminal-container">
-            <div class="ascii-art-wrapper">
-                <pre class="ascii-art">{eden_art}</pre>
-                <div style="height: 15px;"></div>
-                <pre class="ascii-art">{backend_art}</pre>
-            </div>
-
-            <p class="status-line">>&nbsp;SYSTEM KERNEL: [ONLINE]</p>
-
-            <div class="api-map">
-                <h3>[ SERVICE ENDPOINTS ]</h3>
-                <ul>
-                    <li><span class="method">GET</span><span class="path">/api/analyze/</span></li>
-                    <li><span class="method">GET</span><span class="path">/api/recipes/</span></li>
-                    <li><span class="method">GET</span><span class="path">/api/guestbook/</span></li>
-                    <li><span class="method">POST</span><span class="path">/api/user/</span></li>
-                    <li><span class="method">POST</span><span class="path">/api/chatbot/</span></li>
-                </ul>
+        <div class="loader-wrapper" id="loader">
+            <div id="loader-log-container">
+                <div id="loader-log"></div>
+                <div class="progress-bar"><div id="progress"></div></div>
             </div>
         </div>
 
+        <div id="os-container">
+            <div id="ident-window" class="window">
+                <div class="window-header">[ IDENTIFICATION_SIG ]</div>
+                <div class="window-body">
+                    <pre>{eden_art}</pre>
+                    <div style="height: 10px;"></div>
+                    <pre>{backend_art}</pre>
+                </div>
+            </div>
+
+            <div id="core-window" class="window">
+                <div class="window-header">[ AEGIS_CORE :: COMMS ]</div>
+                <div class="window-body">
+                    <div class="avatar-container">
+                        <img id="avatar" src="https://img.freepik.com/premium-psd/scary-skull-aigenerated_980077-4542.jpg" alt="AEGIS Avatar">
+                    </div>
+                </div>
+            </div>
+            
+            <div id="network-window" class="window">
+                <div class="window-header">[ NETWORK_RELAY ]</div>
+                <div class="window-body" id="network-body">
+                    <div class="endpoint-item"><span class="path">/api/analyze/</span><span class="endpoint-status">[PENDING]</span></div>
+                    <div class="endpoint-item"><span class="path">/api/recipes/</span><span class="endpoint-status">[PENDING]</span></div>
+                    <div class="endpoint-item"><span class="path">/api/guestbook/</span><span class="endpoint-status">[PENDING]</span></div>
+                    <div class="endpoint-item"><span class="path">/api/user/</span><span class="endpoint-status">[PENDING]</span></div>
+                    <div class="endpoint-item"><span class="path">/api/chatbot/</span><span class="endpoint-status">[PENDING]</span></div>
+                </div>
+            </div>
+
+            <div id="cli-container">
+                <div id="cli-output"></div>
+                <div id="cli-input-line">
+                    <span>> </span>
+                    <input type="text" id="cli-input" autofocus autocomplete="off" placeholder="Enter command... (type 'help' for options)">
+                    <div class="cursor"></div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="mute-btn">ENABLE SOUND</button>
+        <audio id="loading-audio" loop preload="auto"><source src="/static/load.mp3" type="audio/mpeg"></audio>
+
         <script>
-            const canvas = document.getElementById('matrix-canvas');
+            // --- Audio ---
+            const loadingAudio = document.getElementById('loading-audio');
+            const muteBtn = document.getElementById('mute-btn');
+            let soundInitialized = false;
+            let isMuted = true;
+
+            loadingAudio.muted = true;
+            
+            muteBtn.addEventListener('click', () => {{
+                if (!soundInitialized) {{
+                    isMuted = false;
+                    loadingAudio.muted = false;
+                    loadingAudio.volume = 0.7;
+                    loadingAudio.play().catch(e => console.error("Audio playback was prevented. Please interact with the page first.", e));
+                    muteBtn.textContent = 'MUTE';
+                    soundInitialized = true;
+                }} else {{
+                    isMuted = !isMuted;
+                    loadingAudio.muted = isMuted;
+                    muteBtn.textContent = isMuted ? 'UNMUTE' : 'MUTE';
+                }}
+            }});
+            
+            // --- Loader ---
+            const loaderLog = document.getElementById('loader-log');
+            const progressBar = document.getElementById('progress');
+            const bootSequence = [
+                {{ text: "AEGIS OS BOOTSTRAP...", duration: 500, progress: 15 }},
+                {{ text: "LOADING KERNEL...", duration: 800, progress: 40 }},
+                {{ text: "VERIFYING SIGNATURES...", duration: 700, progress: 75 }},
+                {{ text: "SYSTEM ONLINE. Welcome Operator.", duration: 600, progress: 100 }}
+            ];
+            let bootIndex = 0;
+            
+            function runBoot() {{
+                if (bootIndex >= bootSequence.length) {{
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('os-container').style.display = 'flex';
+                    document.getElementById('cli-input').focus();
+                    return;
+                }}
+                const step = bootSequence[bootIndex];
+                loaderLog.innerHTML += `<div>> ${{step.text}}</div>`;
+                loaderLog.scrollTop = loaderLog.scrollHeight;
+                progressBar.style.width = step.progress + '%';
+                bootIndex++;
+                setTimeout(runBoot, step.duration);
+            }}
+            
+            runBoot();
+
+            // --- CLI ---
+            const cliInput = document.getElementById('cli-input');
+            const cliOutput = document.getElementById('cli-output');
+            cliInput.addEventListener('keydown', function(e) {{
+                if (e.key === 'Enter') {{
+                    const command = this.value.trim().toLowerCase();
+                    output(`> ${{command}}`);
+                    handleCommand(command);
+                    this.value = '';
+                }}
+            }});
+            function handleCommand(cmd) {{
+                const commands = {{
+                    'help': 'Commands: help, status, scan, sysinfo, clear',
+                    'status': 'All systems nominal. AEGIS Core running at 100%.',
+                    'sysinfo': `OS: AEGIS v3.1<br>Core: Quantum Entanglement Processor<br>Memory: 65536MB`,
+                    'clear': () => cliOutput.innerHTML = '',
+                    'scan': () => scanEndpoints()
+                }};
+                const response = commands[cmd];
+                if (response) {{
+                     if (typeof response === 'function') response(); else output(response);
+                }} else {{
+                    output(`<span class="cli-error">Error: Command not found '${{cmd}}'</span>`);
+                }}
+            }}
+            function output(message) {{ cliOutput.innerHTML += `<div>${{message}}</div>`; cliOutput.scrollTop = cliOutput.scrollHeight; }}
+            function scanEndpoints() {{
+                const statuses = document.querySelectorAll('.endpoint-status');
+                statuses.forEach((status, i) => {{
+                    setTimeout(() => {{
+                        status.textContent = '[SCANNING...]';
+                        setTimeout(() => {{ status.textContent = '[SECURE]'; status.classList.add('secure'); }}, 500);
+                    }}, i * 200);
+                }});
+                output('Network scan complete. 5 secure connections established.');
+            }}
+
+            // --- Draggable Windows ---
+            document.querySelectorAll('.window').forEach(win => {{
+                let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                win.querySelector('.window-header').onmousedown = e => {{
+                    e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY;
+                    document.onmouseup = () => {{ document.onmouseup = null; document.onmousemove = null; }};
+                    document.onmousemove = ev => {{
+                        ev.preventDefault();
+                        pos1 = pos3 - ev.clientX; pos2 = pos4 - ev.clientY;
+                        pos3 = ev.clientX; pos4 = ev.clientY;
+                        win.style.top = (win.offsetTop - pos2) + "px";
+                        win.style.left = (win.offsetLeft - pos1) + "px";
+                    }};
+                }};
+            }});
+
+            // --- Digital Rain ---
+            const canvas = document.getElementById('digital-rain-canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            const alphabet = 'アァカサタナハマヤャラワガザダバパイキシチニヒミリヰギジヂビピウクスツヌフムユルグズブプエケセテネヘメレオコソトノホモヨロヲゴゾドボポヴッン0123456789';
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            const katakana = 'アァカサタナハマヤャラワガザダバパイキシチニヒミリヰギジヂビピウクスツヌフムユルグズブプエケセテネヘメレオコソトノホモヨロヲゴゾドボポヴッン';
+            const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const nums = '0123456789';
+            const alphabet = katakana + latin + nums;
             const fontSize = 16;
             const columns = canvas.width / fontSize;
-            const rainDrops = Array.from({{ length: columns }}).fill(1);
-
-            const draw = () => {{
+            const rainDrops = Array.from({{ length: Math.ceil(columns) }}).fill(1);
+            function drawRain() {{
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#00e5ff';
                 ctx.font = fontSize + 'px monospace';
                 for (let i = 0; i < rainDrops.length; i++) {{
+                    ctx.fillStyle = Math.random() > 0.995 ? '#FF003C' : '#FFFFFF';
                     const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
                     ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
-                    if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {{
-                        rainDrops[i] = 0;
-                    }}
+                    if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) rainDrops[i] = 0;
                     rainDrops[i]++;
                 }}
-            }};
-
-            setInterval(draw, 33);
-            
-            window.addEventListener('resize', () => {{
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }});
+            }}
+            setInterval(drawRain, 33);
         </script>
     </body>
     </html>
