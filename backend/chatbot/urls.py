@@ -1,9 +1,6 @@
-# chatbot/urls.py
-
 from django.urls import path
+from . import views
 
-# The list MUST be named 'urlpatterns'
 urlpatterns = [
-    # path('some-endpoint/', views.some_view, name='some_name'),
-    # Add your actual paths here
+    path('chat/', views.chat, name='chat'),
 ]
